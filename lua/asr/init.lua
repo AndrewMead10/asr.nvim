@@ -86,7 +86,7 @@ function M.send_audio_for_transcription(audio_file)
   print("📡 Endpoint URL: " .. M.config.transcribe_url)
   
   local curl_cmd = string.format(
-    'curl -X POST -F "audio=@%s" %s',
+    'curl -X POST -F "file=@%s" %s',
     audio_file,
     M.config.transcribe_url
   )
