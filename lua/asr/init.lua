@@ -37,11 +37,23 @@ function M.start_recording()
     temp_file
   )
   
+  print("🎤 Starting audio recording with command: " .. cmd)
+  
   audio_process = vim.fn.jobstart(cmd, {
     on_exit = function(_, code)
+      print("🎤 Audio recording process exited with code: " .. code)
       if code == 0 and recording == false then
+        print("🎤 Recording successful, sending for transcription...")
         M.send_audio_for_transcription(temp_file)
+      else
+        if code ~= 0 then
+          print("❌ Audio recording failed with exit code: " .. code)
+        end
+        if recording == true then
+          print("⚠️ Recording still active, not sending for transcription")
+        end
       end
+      print("🎤 Cleaning up temp file: " .. temp_file)
       os.remove(temp_file)
     end
   })
@@ -62,25 +74,44 @@ function M.stop_recording()
 end
 
 function M.send_audio_for_transcription(audio_file)
+  print("📡 Preparing to send audio file: " .. audio_file)
+  print("📡 Endpoint URL: " .. M.config.transcribe_url)
+  
   local curl_cmd = string.format(
     'curl -X POST -F "audio=@%s" %s',
     audio_file,
     M.config.transcribe_url
   )
   
+  print("📡 Executing curl command: " .. curl_cmd)
+  
   vim.fn.jobstart(curl_cmd, {
     stdout_buffered = true,
+    stderr_buffered = true,
     on_stdout = function(_, data)
+      print("📡 Received stdout data: " .. vim.inspect(data))
       if data and #data > 0 then
         local text = table.concat(data, "\n"):gsub("^%s*(.-)%s*$", "%1")
         if text ~= "" then
+          print("📡 Extracted text: " .. text)
           M.insert_text(text)
+        else
+          print("📡 Empty text after processing")
         end
       end
     end,
+    on_stderr = function(_, data)
+      if data and #data > 0 then
+        local error_text = table.concat(data, "\n")
+        print("📡 curl stderr: " .. error_text)
+      end
+    end,
     on_exit = function(_, code)
+      print("📡 curl process exited with code: " .. code)
       if code ~= 0 then
-        print("❌ Transcription failed")
+        print("❌ Transcription failed with exit code: " .. code)
+      else
+        print("✅ curl request completed successfully")
       end
     end
   })
