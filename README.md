@@ -1,4 +1,4 @@
-# voice-transcribe.nvim
+# asr.nvim
 
 A Neovim plugin for voice recording and transcription.
 
@@ -15,9 +15,9 @@ Using [packer.nvim](https://github.com/wbthomason/packer.nvim):
 
 ```lua
 use {
-  'path/to/voice-transcribe.nvim',
+  'path/to/asr.nvim',
   config = function()
-    require('voice-transcribe').setup({
+    require('asr').setup({
       transcribe_url = "http://your-transcription-service.com/transcribe",
       sample_rate = 16000,
     })
@@ -28,7 +28,7 @@ use {
 ## Configuration
 
 ```lua
-require('voice-transcribe').setup({
+require('asr').setup({
   transcribe_url = "http://localhost:8080/transcribe",  -- Your transcription endpoint
   audio_format = "wav",                                 -- Audio format
   sample_rate = 16000,                                  -- Sample rate in Hz
