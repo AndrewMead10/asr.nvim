@@ -40,6 +40,13 @@ function M.start_recording()
   print("🎤 Starting audio recording with command: " .. cmd)
   
   audio_process = vim.fn.jobstart(cmd, {
+    stderr_buffered = true,
+    on_stderr = function(_, data)
+      if data and #data > 0 then
+        local error_text = table.concat(data, "\n")
+        print("🎤 arecord stderr: " .. error_text)
+      end
+    end,
     on_exit = function(_, code)
       print("🎤 Audio recording process exited with code: " .. code)
       if code == 0 and recording == false then
