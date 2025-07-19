@@ -60,9 +60,9 @@ function M.start_recording()
         if recording == true then
           print("⚠️ Recording still active, not sending for transcription")
         end
+        print("🎤 Cleaning up temp file: " .. temp_file)
+        os.remove(temp_file)
       end
-      print("🎤 Cleaning up temp file: " .. temp_file)
-      os.remove(temp_file)
     end
   })
 end
@@ -121,6 +121,8 @@ function M.send_audio_for_transcription(audio_file)
       else
         print("✅ curl request completed successfully")
       end
+      print("📡 Cleaning up temp file: " .. audio_file)
+      os.remove(audio_file)
     end
   })
 end
