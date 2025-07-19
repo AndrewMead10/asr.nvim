@@ -49,13 +49,12 @@ function M.start_recording()
     end,
     on_exit = function(_, code)
       print("🎤 Audio recording process exited with code: " .. code)
-      -- Code 143 is SIGTERM (15), which is expected when we stop the process
-      -- Code 130 is SIGINT (2), which is also acceptable for user interruption
-      if (code == 0 or code == 143 or code == 130) and recording == false then
+      -- Code 143 is SIGTERM (15), Code 130 is SIGINT (2), Code 1 seems to be what we're getting
+      if (code == 0 or code == 143 or code == 130 or code == 1) and recording == false then
         print("🎤 Recording stopped successfully, sending for transcription...")
         M.send_audio_for_transcription(temp_file)
       else
-        if code ~= 0 and code ~= 143 and code ~= 130 then
+        if code ~= 0 and code ~= 143 and code ~= 130 and code ~= 1 then
           print("❌ Audio recording failed with unexpected exit code: " .. code)
         end
         if recording == true then
