@@ -7,6 +7,7 @@ M.config = {
   transcribe_url = "http://localhost:4343/transcribe",
   audio_format = "wav",
   sample_rate = 16000,
+  audio_device = "default:CARD=Snowball", -- nil means use default device, otherwise specify like "hw:1,0"
 }
 
 function M.setup(opts)
@@ -31,11 +32,21 @@ function M.start_recording()
   
   local temp_file = os.tmpname() .. ".wav"
   
-  local cmd = string.format(
-    "arecord -f S16_LE -r %d -c 1 %s",
-    M.config.sample_rate,
-    temp_file
-  )
+  local cmd
+  if M.config.audio_device then
+    cmd = string.format(
+      "arecord -D %s -f S16_LE -r %d -c 1 %s",
+      M.config.audio_device,
+      M.config.sample_rate,
+      temp_file
+    )
+  else
+    cmd = string.format(
+      "arecord -f S16_LE -r %d -c 1 %s",
+      M.config.sample_rate,
+      temp_file
+    )
+  end
   
   print("🎤 Starting audio recording with command: " .. cmd)
   
