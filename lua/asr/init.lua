@@ -107,10 +107,12 @@ function M.insert_text(text)
   local cursor = vim.api.nvim_win_get_cursor(0)
   local row, col = cursor[1] - 1, cursor[2]
   
-  vim.api.nvim_buf_set_text(0, row, col, row, col, {text})
+  local lines = vim.split(text, '\n', {plain = true})
+  vim.api.nvim_buf_set_text(0, row, col, row, col, lines)
   
-  local new_col = col + #text
-  vim.api.nvim_win_set_cursor(0, {row + 1, new_col})
+  local final_row = row + #lines - 1
+  local final_col = #lines == 1 and col + #lines[1] or #lines[#lines]
+  vim.api.nvim_win_set_cursor(0, {final_row + 1, final_col})
 end
 
 return M
