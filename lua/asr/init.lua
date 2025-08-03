@@ -8,6 +8,7 @@ M.config = {
   audio_format = "wav",
   sample_rate = 16000,
   audio_device = "default:CARD=Snowball", -- nil means use default device, otherwise specify like "hw:1,0"
+  api_key = nil, -- API key for authentication (optional)
 }
 
 function M.setup(opts)
@@ -77,11 +78,21 @@ end
 
 function M.send_audio_for_transcription(audio_file)
   
-  local curl_cmd = string.format(
-    'curl -X POST -F "file=@%s" %s',
-    audio_file,
-    M.config.transcribe_url
-  )
+  local curl_cmd
+  if M.config.api_key then
+    curl_cmd = string.format(
+      'curl -X POST -H "X-API-Key: %s" -F "file=@%s" %s',
+      M.config.api_key,
+      audio_file,
+      M.config.transcribe_url
+    )
+  else
+    curl_cmd = string.format(
+      'curl -X POST -F "file=@%s" %s',
+      audio_file,
+      M.config.transcribe_url
+    )
+  end
   
   vim.fn.jobstart(curl_cmd, {
     stdout_buffered = true,
