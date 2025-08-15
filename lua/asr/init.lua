@@ -6,7 +6,7 @@ local audio_process = nil
 M.config = {
   transcribe_url = "http://localhost:4343/transcribe",
   audio_format = "wav",
-  sample_rate = 16000,
+  sample_rate = 16000, -- Recording sample rate (configurable per device, API always expects 16000)
   audio_device = "default:CARD=Snowball", -- nil means use default device, otherwise specify like "hw:1,0"
   api_key = nil, -- API key for authentication (optional)
 }
@@ -38,19 +38,43 @@ function M.start_recording()
   local temp_file = os.tmpname() .. ".wav"
   
   local cmd
-  if M.config.audio_device then
-    cmd = string.format(
-      "arecord -D %s -f S16_LE -r %d -c 1 %s",
-      M.config.audio_device,
-      M.config.sample_rate,
-      temp_file
-    )
+  if M.config.sample_rate == 16000 then
+    -- Direct recording at 16000Hz mono (if supported by device)
+    if M.config.audio_device then
+      cmd = string.format(
+        "arecord -D %s -f S16_LE -r 16000 -c 1 %s",
+        M.config.audio_device,
+        temp_file
+      )
+    else
+      cmd = string.format(
+        "arecord -f S16_LE -r 16000 -c 1 %s",
+        temp_file
+      )
+    end
   else
-    cmd = string.format(
-      "arecord -f S16_LE -r %d -c 1 %s",
-      M.config.sample_rate,
-      temp_file
-    )
+    -- Record at device sample rate, then convert to 16000Hz mono
+    local temp_raw_file = temp_file .. ".raw"
+    if M.config.audio_device then
+      cmd = string.format(
+        "arecord -D %s -f S16_LE -r %d -c 2 %s && ffmpeg -i %s -ac 1 -ar 16000 %s && rm %s",
+        M.config.audio_device,
+        M.config.sample_rate,
+        temp_raw_file,
+        temp_raw_file,
+        temp_file,
+        temp_raw_file
+      )
+    else
+      cmd = string.format(
+        "arecord -f S16_LE -r %d -c 2 %s && ffmpeg -i %s -ac 1 -ar 16000 %s && rm %s",
+        M.config.sample_rate,
+        temp_raw_file,
+        temp_raw_file,
+        temp_file,
+        temp_raw_file
+      )
+    end
   end
   
   audio_process = vim.fn.jobstart(cmd, {
