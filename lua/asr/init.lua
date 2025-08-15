@@ -77,15 +77,39 @@ function M.start_recording()
     end
   end
   
+  vim.notify("🎙️ Recording command: " .. cmd, "info", {
+    title = "ASR Debug",
+    timeout = 5000
+  })
+
   audio_process = vim.fn.jobstart(cmd, {
     stderr_buffered = true,
     on_stderr = function(_, data)
+      if data and #data > 0 then
+        local stderr_text = table.concat(data, "\n")
+        vim.notify("Recording stderr: " .. stderr_text, "warn", {
+          title = "ASR Debug",
+          timeout = 5000
+        })
+      end
     end,
     on_exit = function(_, code)
+      vim.notify("Recording exit code: " .. code, "info", {
+        title = "ASR Debug", 
+        timeout = 5000
+      })
       -- Code 143 is SIGTERM (15), Code 130 is SIGINT (2), Code 1 seems to be what we're getting
       if (code == 0 or code == 143 or code == 130 or code == 1) and recording == false then
+        vim.notify("Sending audio file: " .. temp_file, "info", {
+          title = "ASR Debug",
+          timeout = 5000
+        })
         M.send_audio_for_transcription(temp_file)
       else
+        vim.notify("Recording failed, removing temp file", "error", {
+          title = "ASR Debug",
+          timeout = 5000
+        })
         os.remove(temp_file)
       end
     end
@@ -128,12 +152,22 @@ function M.send_audio_for_transcription(audio_file)
     )
   end
   
+  vim.notify("🌐 Transcription command: " .. curl_cmd, "info", {
+    title = "ASR Debug",
+    timeout = 5000
+  })
+  
   vim.fn.jobstart(curl_cmd, {
     stdout_buffered = true,
     stderr_buffered = true,
     on_stdout = function(_, data)
       if data and #data > 0 then
-        local text = table.concat(data, "\n"):gsub("^%s*(.-)%s*$", "%1")
+        local stdout_text = table.concat(data, "\n")
+        vim.notify("Transcription stdout: " .. stdout_text, "info", {
+          title = "ASR Debug",
+          timeout = 5000
+        })
+        local text = stdout_text:gsub("^%s*(.-)%s*$", "%1")
         text = text:gsub('^"(.-)"$', '%1')
         if text ~= "" then
           M.insert_text(text)
@@ -141,8 +175,19 @@ function M.send_audio_for_transcription(audio_file)
       end
     end,
     on_stderr = function(_, data)
+      if data and #data > 0 then
+        local stderr_text = table.concat(data, "\n")
+        vim.notify("Transcription stderr: " .. stderr_text, "warn", {
+          title = "ASR Debug",
+          timeout = 5000
+        })
+      end
     end,
     on_exit = function(_, code)
+      vim.notify("Transcription exit code: " .. code, "info", {
+        title = "ASR Debug",
+        timeout = 5000
+      })
       os.remove(audio_file)
     end
   })
