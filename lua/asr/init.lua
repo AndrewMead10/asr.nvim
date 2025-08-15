@@ -57,21 +57,15 @@ function M.start_recording()
     local temp_raw_file = temp_file .. ".raw"
     if M.config.audio_device then
       cmd = string.format(
-        "arecord -D %s -f S16_LE -r %d -c 2 %s && ffmpeg -i %s -ac 1 -ar 16000 %s && rm %s",
+        "arecord -D %s -f S16_LE -r %d -c 2 %s",
         M.config.audio_device,
         M.config.sample_rate,
-        temp_raw_file,
-        temp_raw_file,
-        temp_file,
         temp_raw_file
       )
     else
       cmd = string.format(
-        "arecord -f S16_LE -r %d -c 2 %s && ffmpeg -i %s -ac 1 -ar 16000 %s && rm %s",
+        "arecord -f S16_LE -r %d -c 2 %s",
         M.config.sample_rate,
-        temp_raw_file,
-        temp_raw_file,
-        temp_file,
         temp_raw_file
       )
     end
@@ -91,10 +85,39 @@ function M.start_recording()
       print("📤 ASR Debug - Recording exit code: " .. code)
       -- Code 143 is SIGTERM (15), Code 130 is SIGINT (2), Code 1 seems to be what we're getting
       if (code == 0 or code == 143 or code == 130 or code == 1) and recording == false then
-        print("📤 ASR Debug - Sending audio file: " .. temp_file)
-        M.send_audio_for_transcription(temp_file)
+        if M.config.sample_rate == 16000 then
+          print("📤 ASR Debug - Sending audio file: " .. temp_file)
+          M.send_audio_for_transcription(temp_file)
+        else
+          -- Convert stereo/high-sample-rate to mono 16kHz
+          local temp_raw_file = temp_file .. ".raw"
+          local convert_cmd = string.format(
+            "ffmpeg -y -i %s -ac 1 -ar 16000 %s && rm %s",
+            temp_raw_file,
+            temp_file,
+            temp_raw_file
+          )
+          print("🔄 ASR Debug - Converting audio: " .. convert_cmd)
+          vim.fn.jobstart(convert_cmd, {
+            on_exit = function(_, convert_code)
+              print("📤 ASR Debug - Conversion exit code: " .. convert_code)
+              if convert_code == 0 then
+                print("📤 ASR Debug - Sending converted audio file: " .. temp_file)
+                M.send_audio_for_transcription(temp_file)
+              else
+                print("❌ ASR Debug - Conversion failed, removing temp files")
+                os.remove(temp_file)
+                os.remove(temp_raw_file)
+              end
+            end
+          })
+        end
       else
         print("❌ ASR Debug - Recording failed, removing temp file")
+        if M.config.sample_rate ~= 16000 then
+          local temp_raw_file = temp_file .. ".raw"
+          os.remove(temp_raw_file)
+        end
         os.remove(temp_file)
       end
     end
