@@ -30,6 +30,11 @@ function M.start_recording()
   
   recording = true
   
+  vim.notify("🎤 Recording started", "info", {
+    title = "ASR",
+    timeout = 2000
+  })
+  
   local temp_file = os.tmpname() .. ".wav"
   
   local cmd
@@ -69,6 +74,11 @@ function M.stop_recording()
   end
   
   recording = false
+  
+  vim.notify("⏹️ Recording stopped", "info", {
+    title = "ASR",
+    timeout = 2000
+  })
   
   if audio_process then
     vim.fn.jobstop(audio_process)
