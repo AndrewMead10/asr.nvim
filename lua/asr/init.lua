@@ -79,6 +79,10 @@ function M.start_recording()
       if data and #data > 0 then
         local stderr_text = table.concat(data, "\n")
         print("⚠️ ASR Debug - Recording stderr: " .. stderr_text)
+        vim.notify("❌ Recording error: " .. stderr_text, "error", {
+          title = "ASR",
+          timeout = 4000
+        })
       end
     end,
     on_exit = function(_, code)
@@ -106,6 +110,10 @@ function M.start_recording()
                 M.send_audio_for_transcription(temp_file)
               else
                 print("❌ ASR Debug - Conversion failed, removing temp files")
+                vim.notify("❌ Audio conversion failed", "error", {
+                  title = "ASR",
+                  timeout = 4000
+                })
                 os.remove(temp_file)
                 os.remove(temp_raw_file)
               end
@@ -114,6 +122,10 @@ function M.start_recording()
         end
       else
         print("❌ ASR Debug - Recording failed, removing temp file")
+        vim.notify("❌ Recording failed (exit code: " .. code .. ")", "error", {
+          title = "ASR",
+          timeout = 4000
+        })
         if M.config.sample_rate ~= 16000 then
           local temp_raw_file = temp_file .. ".raw"
           os.remove(temp_raw_file)
@@ -180,10 +192,20 @@ function M.send_audio_for_transcription(audio_file)
       if data and #data > 0 then
         local stderr_text = table.concat(data, "\n")
         print("⚠️ ASR Debug - Transcription stderr: " .. stderr_text)
+        vim.notify("❌ Transcription error: " .. stderr_text, "error", {
+          title = "ASR",
+          timeout = 4000
+        })
       end
     end,
     on_exit = function(_, code)
       print("📤 ASR Debug - Transcription exit code: " .. code)
+      if code ~= 0 then
+        vim.notify("❌ Transcription failed (exit code: " .. code .. ")", "error", {
+          title = "ASR",
+          timeout = 4000
+        })
+      end
       os.remove(audio_file)
     end
   })
