@@ -2,6 +2,7 @@ local M = {}
 
 local recording = false
 local audio_process = nil
+local auto_stop_timer = nil
 
 M.config = {
   transcribe_url = "http://localhost:4343/transcribe",
@@ -29,11 +30,22 @@ function M.start_recording()
   end
   
   recording = true
-  
-  vim.notify("🎤 Recording started", "info", {
+
+  vim.notify("🎤 Recording started (15-minute auto-stop)", "info", {
     title = "ASR",
     timeout = 2000
   })
+
+  -- Start auto-stop timer for 15 minutes (900000 ms)
+  auto_stop_timer = vim.defer_fn(function()
+    if recording then
+      vim.notify("⏰ Auto-stopping recording after 15 minutes", "info", {
+        title = "ASR",
+        timeout = 2000
+      })
+      M.stop_recording()
+    end
+  end, 900000)
   
   local temp_file = os.tmpname() .. ".wav"
   
@@ -71,14 +83,14 @@ function M.start_recording()
     end
   end
   
-  print("🎙️ ASR Debug - Recording command: " .. cmd)
+  vim.notify("🎙️ ASR Debug - Recording command: " .. cmd, vim.log.levels.DEBUG)
 
   audio_process = vim.fn.jobstart(cmd, {
     stderr_buffered = true,
     on_stderr = function(_, data)
       if data and #data > 0 then
         local stderr_text = table.concat(data, "\n")
-        print("⚠️ ASR Debug - Recording stderr: " .. stderr_text)
+        vim.notify("⚠️ ASR Debug - Recording stderr: " .. stderr_text, vim.log.levels.DEBUG)
         vim.notify("❌ Recording error: " .. stderr_text, "error", {
           title = "ASR",
           timeout = 4000
@@ -86,11 +98,11 @@ function M.start_recording()
       end
     end,
     on_exit = function(_, code)
-      print("📤 ASR Debug - Recording exit code: " .. code)
+      vim.notify("📤 ASR Debug - Recording exit code: " .. code, vim.log.levels.DEBUG)
       -- Code 143 is SIGTERM (15), Code 130 is SIGINT (2), Code 1 seems to be what we're getting
       if (code == 0 or code == 143 or code == 130 or code == 1) and recording == false then
         if M.config.sample_rate == 16000 then
-          print("📤 ASR Debug - Sending audio file: " .. temp_file)
+          vim.notify("📤 ASR Debug - Sending audio file: " .. temp_file, vim.log.levels.DEBUG)
           M.send_audio_for_transcription(temp_file)
         else
           -- Convert stereo/high-sample-rate to mono 16kHz
@@ -101,15 +113,15 @@ function M.start_recording()
             temp_file,
             temp_raw_file
           )
-          print("🔄 ASR Debug - Converting audio: " .. convert_cmd)
+          vim.notify("🔄 ASR Debug - Converting audio: " .. convert_cmd, vim.log.levels.DEBUG)
           vim.fn.jobstart(convert_cmd, {
             on_exit = function(_, convert_code)
-              print("📤 ASR Debug - Conversion exit code: " .. convert_code)
+              vim.notify("📤 ASR Debug - Conversion exit code: " .. convert_code, vim.log.levels.DEBUG)
               if convert_code == 0 then
-                print("📤 ASR Debug - Sending converted audio file: " .. temp_file)
+                vim.notify("📤 ASR Debug - Sending converted audio file: " .. temp_file, vim.log.levels.DEBUG)
                 M.send_audio_for_transcription(temp_file)
               else
-                print("❌ ASR Debug - Conversion failed, removing temp files")
+                vim.notify("❌ ASR Debug - Conversion failed, removing temp files", vim.log.levels.DEBUG)
                 vim.notify("❌ Audio conversion failed", "error", {
                   title = "ASR",
                   timeout = 4000
@@ -121,7 +133,7 @@ function M.start_recording()
           })
         end
       else
-        print("❌ ASR Debug - Recording failed, removing temp file")
+        vim.notify("❌ ASR Debug - Recording failed, removing temp file", vim.log.levels.DEBUG)
         vim.notify("❌ Recording failed (exit code: " .. code .. ")", "error", {
           title = "ASR",
           timeout = 4000
@@ -142,12 +154,18 @@ function M.stop_recording()
   end
   
   recording = false
-  
+
   vim.notify("⏹️ Recording stopped", "info", {
     title = "ASR",
     timeout = 2000
   })
-  
+
+  -- Cancel auto-stop timer if it exists
+  if auto_stop_timer then
+    auto_stop_timer:close()
+    auto_stop_timer = nil
+  end
+
   if audio_process then
     vim.fn.jobstop(audio_process)
     audio_process = nil
@@ -172,7 +190,7 @@ function M.send_audio_for_transcription(audio_file)
     )
   end
   
-  print("🌐 ASR Debug - Transcription command: " .. curl_cmd)
+  vim.notify("🌐 ASR Debug - Transcription command: " .. curl_cmd, vim.log.levels.DEBUG)
   
   vim.fn.jobstart(curl_cmd, {
     stdout_buffered = true,
@@ -180,7 +198,7 @@ function M.send_audio_for_transcription(audio_file)
     on_stdout = function(_, data)
       if data and #data > 0 then
         local stdout_text = table.concat(data, "\n")
-        print("💬 ASR Debug - Transcription stdout: " .. stdout_text)
+        vim.notify("💬 ASR Debug - Transcription stdout: " .. stdout_text, vim.log.levels.DEBUG)
         local text = stdout_text:gsub("^%s*(.-)%s*$", "%1")
         text = text:gsub('^"(.-)"$', '%1')
         if text ~= "" then
@@ -191,7 +209,7 @@ function M.send_audio_for_transcription(audio_file)
     on_stderr = function(_, data)
       if data and #data > 0 then
         local stderr_text = table.concat(data, "\n")
-        print("⚠️ ASR Debug - Transcription stderr: " .. stderr_text)
+        vim.notify("⚠️ ASR Debug - Transcription stderr: " .. stderr_text, vim.log.levels.DEBUG)
         vim.notify("❌ Transcription error: " .. stderr_text, "error", {
           title = "ASR",
           timeout = 4000
@@ -199,7 +217,7 @@ function M.send_audio_for_transcription(audio_file)
       end
     end,
     on_exit = function(_, code)
-      print("📤 ASR Debug - Transcription exit code: " .. code)
+      vim.notify("📤 ASR Debug - Transcription exit code: " .. code, vim.log.levels.DEBUG)
       if code ~= 0 then
         vim.notify("❌ Transcription failed (exit code: " .. code .. ")", "error", {
           title = "ASR",
