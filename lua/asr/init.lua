@@ -8,7 +8,7 @@ M.config = {
   transcribe_url = "http://localhost:4343/transcribe",
   audio_format = "wav",
   sample_rate = 16000, -- Recording sample rate (configurable per device, API always expects 16000)
-  audio_device = "default:CARD=Snowball", -- nil means use default device, otherwise specify like "hw:1,0"
+  audio_device = "sysdefault:CARD=Snowball", -- nil means use default device, otherwise specify like "hw:1,0"
   api_key = nil, -- API key for authentication (optional)
 }
 
