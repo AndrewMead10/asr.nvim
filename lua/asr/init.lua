@@ -2,12 +2,13 @@ local M = {}
 
 local recording = false
 local audio_process = nil
+local auto_stop_timer = nil
 
 M.config = {
   transcribe_url = "http://localhost:4343/transcribe",
   audio_format = "wav",
   sample_rate = 16000, -- Recording sample rate (configurable per device, API always expects 16000)
-  audio_device = "default:CARD=Snowball", -- nil means use default device, otherwise specify like "hw:1,0"
+  audio_device = "pipewire", -- nil means use default device, otherwise specify like "hw:1,0"
   api_key = nil, -- API key for authentication (optional)
 }
 
@@ -29,11 +30,22 @@ function M.start_recording()
   end
   
   recording = true
-  
-  vim.notify("🎤 Recording started", "info", {
+
+  vim.notify("🎤 Recording started (15-minute auto-stop)", "info", {
     title = "ASR",
     timeout = 2000
   })
+
+  -- Start auto-stop timer for 15 minutes (900000 ms)
+  auto_stop_timer = vim.defer_fn(function()
+    if recording then
+      vim.notify("⏰ Auto-stopping recording after 15 minutes", "info", {
+        title = "ASR",
+        timeout = 2000
+      })
+      M.stop_recording()
+    end
+  end, 900000)
   
   local temp_file = os.tmpname() .. ".wav"
   
@@ -133,12 +145,18 @@ function M.stop_recording()
   end
   
   recording = false
-  
+
   vim.notify("⏹️ Recording stopped", "info", {
     title = "ASR",
     timeout = 2000
   })
-  
+
+  -- Cancel auto-stop timer if it exists
+  if auto_stop_timer then
+    auto_stop_timer:close()
+    auto_stop_timer = nil
+  end
+
   if audio_process then
     vim.fn.jobstop(audio_process)
     audio_process = nil
