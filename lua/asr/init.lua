@@ -5,11 +5,11 @@ local audio_process = nil
 local auto_stop_timer = nil
 
 M.config = {
-  transcribe_url = "http://localhost:4343/transcribe",
+  transcribe_url = "http://asr.amqm.dev/transcribe",
   audio_format = "wav",
-  sample_rate = 16000, -- Recording sample rate (configurable per device, API always expects 16000)
+  sample_rate = 16000,       -- Recording sample rate (configurable per device, API always expects 16000)
   audio_device = "pipewire", -- nil means use default device, otherwise specify like "hw:1,0"
-  api_key = nil, -- API key for authentication (optional)
+  api_key = "",              -- API key for authentication (optional)
 }
 
 function M.setup(opts)
@@ -28,7 +28,7 @@ function M.start_recording()
   if recording then
     return
   end
-  
+
   recording = true
 
   vim.notify("🎤 Recording started (15-minute auto-stop)", "info", {
@@ -46,9 +46,9 @@ function M.start_recording()
       M.stop_recording()
     end
   end, 900000)
-  
+
   local temp_file = os.tmpname() .. ".wav"
-  
+
   local cmd
   if M.config.sample_rate == 16000 then
     -- Direct recording at 16000Hz mono (if supported by device)
@@ -82,7 +82,7 @@ function M.start_recording()
       )
     end
   end
-  
+
 
   audio_process = vim.fn.jobstart(cmd, {
     stderr_buffered = true,
@@ -143,7 +143,7 @@ function M.stop_recording()
   if not recording then
     return
   end
-  
+
   recording = false
 
   vim.notify("⏹️ Recording stopped", "info", {
@@ -164,7 +164,6 @@ function M.stop_recording()
 end
 
 function M.send_audio_for_transcription(audio_file)
-  
   local curl_cmd
   if M.config.api_key then
     curl_cmd = string.format(
@@ -180,8 +179,8 @@ function M.send_audio_for_transcription(audio_file)
       M.config.transcribe_url
     )
   end
-  
-  
+
+
   vim.fn.jobstart(curl_cmd, {
     stdout_buffered = true,
     stderr_buffered = true,
@@ -219,13 +218,13 @@ end
 function M.insert_text(text)
   local cursor = vim.api.nvim_win_get_cursor(0)
   local row, col = cursor[1] - 1, cursor[2]
-  
-  local lines = vim.split(text, '\n', {plain = true})
+
+  local lines = vim.split(text, '\n', { plain = true })
   vim.api.nvim_buf_set_text(0, row, col, row, col, lines)
-  
+
   local final_row = row + #lines - 1
   local final_col = #lines == 1 and col + #lines[1] or #lines[#lines]
-  vim.api.nvim_win_set_cursor(0, {final_row + 1, final_col})
+  vim.api.nvim_win_set_cursor(0, { final_row + 1, final_col })
 end
 
 return M
