@@ -5,11 +5,12 @@ local audio_process = nil
 local auto_stop_timer = nil
 
 M.config = {
-  transcribe_url = "http://asr.amqm.dev/transcribe",
+  transcribe_url = "http://localhost:4343/v1/audio/transcriptions",
+  model = "parakeet-tdt-0.6b-v2",
   audio_format = "wav",
   sample_rate = 16000,       -- Recording sample rate (configurable per device, API always expects 16000)
   audio_device = "pipewire", -- nil means use default device, otherwise specify like "hw:1,0"
-  api_key = "",              -- API key for authentication (optional)
+  api_key = nil,             -- API key for Authorization: Bearer authentication
 }
 
 function M.setup(opts)
@@ -82,7 +83,6 @@ function M.start_recording()
       )
     end
   end
-
 
   audio_process = vim.fn.jobstart(cmd, {
     stderr_buffered = true,
@@ -164,22 +164,30 @@ function M.stop_recording()
 end
 
 function M.send_audio_for_transcription(audio_file)
-  local curl_cmd
-  if M.config.api_key then
-    curl_cmd = string.format(
-      'curl -X POST -H "X-API-Key: %s" -F "file=@%s" %s',
-      M.config.api_key,
-      audio_file,
-      M.config.transcribe_url
-    )
-  else
-    curl_cmd = string.format(
-      'curl -X POST -F "file=@%s" %s',
-      audio_file,
-      M.config.transcribe_url
-    )
+  if not M.config.api_key or M.config.api_key == "" then
+    vim.notify("❌ ASR API key is required", "error", {
+      title = "ASR",
+      timeout = 4000
+    })
+    os.remove(audio_file)
+    return
   end
 
+  local curl_cmd = {
+    "curl",
+    "-fsS",
+    "-X",
+    "POST",
+    "-H",
+    "Authorization: Bearer " .. M.config.api_key,
+    "-F",
+    "file=@" .. audio_file,
+    "-F",
+    "model=" .. M.config.model,
+    "-F",
+    "response_format=text",
+    M.config.transcribe_url,
+  }
 
   vim.fn.jobstart(curl_cmd, {
     stdout_buffered = true,
@@ -197,6 +205,9 @@ function M.send_audio_for_transcription(audio_file)
     on_stderr = function(_, data)
       if data and #data > 0 then
         local stderr_text = table.concat(data, "\n")
+        if stderr_text:gsub("%s+", "") == "" then
+          return
+        end
         vim.notify("❌ Transcription error: " .. stderr_text, "error", {
           title = "ASR",
           timeout = 4000

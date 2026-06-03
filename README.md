@@ -18,7 +18,8 @@ use {
   'path/to/asr.nvim',
   config = function()
     require('asr').setup({
-      transcribe_url = "http://your-transcription-service.com/transcribe",
+      transcribe_url = "http://localhost:4343/v1/audio/transcriptions",
+      api_key = "sk-your-key",
       sample_rate = 16000,
     })
   end
@@ -29,9 +30,11 @@ use {
 
 ```lua
 require('asr').setup({
-  transcribe_url = "http://localhost:8080/transcribe",  -- Your transcription endpoint
-  audio_format = "wav",                                 -- Audio format
-  sample_rate = 16000,                                  -- Sample rate in Hz
+  transcribe_url = "http://localhost:4343/v1/audio/transcriptions",
+  model = "parakeet-tdt-0.6b-v2",
+  api_key = "sk-your-key",
+  audio_format = "wav",
+  sample_rate = 16000,
 })
 ```
 
@@ -47,10 +50,11 @@ require('asr').setup({
 
 - `arecord` (ALSA utils) for audio recording
 - `curl` for HTTP requests
-- A transcription service endpoint that accepts audio files
+- An ASR API key
 
 ## API Endpoint
 
 Your transcription endpoint should:
-- Accept POST requests with audio file as form data (`audio` field)
-- Return plain text transcription response
+- Accept OpenAI-compatible `POST /v1/audio/transcriptions`
+- Accept `Authorization: Bearer <api_key>`
+- Return plain text when `response_format=text`
